@@ -1,27 +1,67 @@
 #modules
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-#params
-diffusivity=110 #m^2/s
-rod_length=1 #m
-time=4 #s
-nodes=10 #-
+#params-INPUT
+INPUT = {
+    "diffusivity":110, #m^2/s
 
-#params2
+    "rod_length":0, #m
+    "nodes":1, #-
+
+    "time":1, #s
+
+    "t1":100, #kelvin
+    "t2":0, #kelvin
+    "ti":20, #kelvin
+
+    "target_CFL":0.4, #-
+    "target_residuals":1e-3, #-
+
+    "fps":30, #fps
+}
+
+#CHECKS-input
+## TODO: add global check version
+if INPUT["diffusivity"] <= 0:
+    print("diffusivity must be greater than 0")
+    exit()
+if INPUT["rod_length"] <= 0:
+    print("rod length must be positive")
+    exit()
+if INPUT["nodes"] <= 0:
+    print("nodes must be positive")
+    exit()
+if INPUT["time"] <= 0:
+    print("time must be positive")
+    exit()
+if INPUT["target_CFL"] <= 0:
+    print("target_CFL must be positive")
+    exit()
+if INPUT["fps"] <= 0:
+    print("fps must be positive")
+    exit()
+
+
+#params-DERIVED
 dx=rod_length/(nodes-1) #m
-dt=(0.40 * dx ** 2)/diffusivity #s
+dt=(0.4 * dx ** 2)/diffusivity #s
 timesteps=int(time/dt) #-
-fps=30 #fps
-target_residuals=1e-3 #-
+
+#CHECKS-derived--w/-SUGGESTIONS
+if (((diffusivity*dt)/(dx**2)) > 0.5):
+    print("advective CFL not met. Increase diffusivity or reduce rod length")
+    exit()
 
 #ADD IF STATEMENT TO CHECK FOR EXPLICIT TIME STEPPING CONVERGENCE
 #ADD SUGGESTION?
 
 #init
-u=np.zeros(nodes)+20
-u[0]=100
-u[-1]=0
+u=np.zeros(nodes)+ti
+u[0]=t1
+u[-1]=t2
 
 #viz
 fig, axis=plt.subplots()
@@ -37,9 +77,10 @@ for j in range(timesteps):
     print(residuals_plot) #ADD RESIDUALS PLOT HERE!!!
 
     img.set_data(u[np.newaxis,:])
-    plt.pause(1/fps)
+    #plt.pause(1/fps)
 
     if np.max(residuals) < target_residuals:
         print(f"solution converged in {j} of {timesteps} iteration(s)")
         break
+
 plt.show()

@@ -5,23 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #params-INPUT
-INPUT = {
-    "diffusivity":110, #m^2/s
-
-    "rod_length":0, #m
-    "nodes":1, #-
-
-    "time":1, #s
-
-    "t1":100, #kelvin
-    "t2":0, #kelvin
-    "ti":20, #kelvin
-
-    "target_CFL":0.4, #-
-    "target_residuals":1e-3, #-
-
-    "fps":30, #fps
-}
+## TODO: add input via config file
+from config import (config)
 
 #CHECKS-input
 ## TODO: add global check version
@@ -44,7 +29,6 @@ if INPUT["fps"] <= 0:
     print("fps must be positive")
     exit()
 
-
 #params-DERIVED
 dx=rod_length/(nodes-1) #m
 dt=(0.4 * dx ** 2)/diffusivity #s
@@ -55,19 +39,23 @@ if (((diffusivity*dt)/(dx**2)) > 0.5):
     print("advective CFL not met. Increase diffusivity or reduce rod length")
     exit()
 
-#ADD IF STATEMENT TO CHECK FOR EXPLICIT TIME STEPPING CONVERGENCE
-#ADD SUGGESTION?
-
 #init
 u=np.zeros(nodes)+ti
 u[0]=t1
 u[-1]=t2
 
+# TODO: add "this is what you want to solve. yes?"
+
 #viz
+## TODO: add viz options, document in "README" or "docs"
+## TODO: add toggles
+## TODO: add anal soln comp
 fig, axis=plt.subplots()
 img=axis.imshow(u[np.newaxis,:],cmap='jet',aspect="auto",vmin=0,vmax=100)
 
 #solver
+## TODO: add implicit v explicit options
+## TODO: vectorisation
 for j in range(timesteps):
     w=u.copy()
     for i in range(1,nodes-1):
@@ -84,3 +72,5 @@ for j in range(timesteps):
         break
 
 plt.show()
+
+## TODO: "stress-test"

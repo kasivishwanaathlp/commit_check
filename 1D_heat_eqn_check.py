@@ -10,22 +10,40 @@ from config import (config)
 
 #CHECKS-input
 ## TODO: add global check version
-if INPUT["diffusivity"] <= 0:
+INPUT_CHECKS={
+    "diffusivity":(lambda i:i>0, "must be >0"),
+    "rod_length":(lambda i:i>0, "must be >0"),
+    "nodes":(lambda i:i>=2, "must be >2"),
+    "time":(lambda i:i>0, "must be >0"),
+    "target_CFL":(lambda i:i<=0.5, "must be >0.5"),
+    "target_residuals":(lambda i:0<i<1, "must be 0<, <1"),
+    "fps":(lambda i:i>0, "must be >0"),
+}
+def input_checks(config):
+    errors=[]
+    for key, (rule, msg) in INPUT_CHECKS.items():
+        value=config[key]
+        if not rule(value):
+            errors.append(f"{key} has invalid value, {msg}")
+    if errors:
+        raise ValueError("\n".join(errors))
+
+if config["diffusivity"] <= 0:
     print("diffusivity must be greater than 0")
     exit()
-if INPUT["rod_length"] <= 0:
+if config["rod_length"] <= 0:
     print("rod length must be positive")
     exit()
-if INPUT["nodes"] <= 0:
+if config["nodes"] <= 0:
     print("nodes must be positive")
     exit()
-if INPUT["time"] <= 0:
+if config["time"] <= 0:
     print("time must be positive")
     exit()
-if INPUT["target_CFL"] <= 0:
+if config["target_CFL"] <= 0:
     print("target_CFL must be positive")
     exit()
-if INPUT["fps"] <= 0:
+if config["fps"] <= 0:
     print("fps must be positive")
     exit()
 

@@ -1,7 +1,7 @@
 config = {
     "diffusivity":110, #m^2/s
-    "rod_length":0, #m
-    "nodes":1, #-
+    "rod_length":2, #m
+    "nodes":10, #-
     "time":1, #s
     "t1":100, #K
     "t2":0, #K

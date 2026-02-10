@@ -1,14 +1,16 @@
 #modules
 import sys
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
-import logging
 logging.basicConfig(level=logging.WARNING, format="WARNING: %(message)s")
 
 #params-INPUT
 from config import (config)
+from dataclasses import dataclass
 
 #CHECKS-input
+## TODO: second rule table for warnings
 INPUT_CHECKS={
     "diffusivity":(lambda i:isinstance(i,(int,float)) and i>0, "must be >0"),
     "rod_length":(lambda i:isinstance(i,(int,float)) and i>0, "must be >0"),
@@ -21,6 +23,24 @@ INPUT_CHECKS={
     "target_residuals":(lambda i:isinstance(i,float) and 0<i<1, "must be 0< <1"),
     "fps":(lambda i:isinstance(i,int) and i>0, "must be an integer >0"),
 }
+@dataclass(frozen=True)
+class Params:
+    diffusivity: float
+    rod_length: float
+    nodes: int
+    time: float
+    t1: float
+    t2: float
+    ti: float
+    target_CFL: float
+    target_residuals: float
+    fps: int
+
+    dx: float
+    dt: float
+    timesteps: int
+    calc_CFL: float
+
 def input_checks(IP_file):
     errors=[]
     for key in IP_file:
@@ -44,7 +64,6 @@ def input_checks(IP_file):
     if errors:
         raise ValueError("\nInput validation failed:\n" + "\n".join(errors))
 ## TODO: add "if __name__ == "__main__":" part for imports
-input_checks(config)
 
 #params-DERIVED
 def params_DERIVED(IP_file):
@@ -53,8 +72,9 @@ def params_DERIVED(IP_file):
     timesteps=int((IP_file['time'])/dt) #-
     calc_CFL=(IP_file["diffusivity"]*dt)/(dx**2)
     return {"dx":dx, "dt":dt, "timesteps":timesteps, "calc_CFL":calc_CFL}
-derived_params=params_DERIVED(config)
 
+#CHECKS-derived--w/-SUGGESTIONS
+## TODO: rule table again? - 1. errors; 2. warnings
 def derived_checks(IP_dict):
     errors=[]
     if IP_dict["dt"]<=0:
@@ -62,7 +82,7 @@ def derived_checks(IP_dict):
     if IP_dict["timesteps"]<=1:
         errors.append("Simulation time smaller than unit timestep")
     if IP_dict["calc_CFL"]>0.5:
-        errors.append(f"Calculated CFL is > 0.5; Calculated CFL = {calc_CFL}")
+        errors.append(f"Calculated CFL is > 0.5; Calculated CFL = {IP_dict['calc_CFL']}")
     if IP_dict["timesteps"]>1e9:
         errors.append("Calculated number of timesteps larger than 1e9")
     if IP_dict["timesteps"]>1e7:
@@ -71,19 +91,25 @@ def derived_checks(IP_dict):
         logging.warning("Calculated number of timesteps smaller than 1e2 - solution may not reach steady behaviour")
     if errors:
         raise ValueError("\nInput validation failed:\n" + "\n".join(errors))
-derived_checks(derived_params)
 
-#CHECKS-derived--w/-SUGGESTIONS
-## TODO: add "DERIVED_CHECKS" as funciton
+def assemble_params(config):
+    input_checks(config)
+    derived_params=params_DERIVED(config)
+    derived_checks(derived_params)
+    return Params(**config, **derived_params)
+params = assemble_params(config)
+
 #init
-u=np.zeros(config["nodes"])+config["ti"]
-u[0]=config["t1"]
-u[-1]=config["t2"]
-
-# TODO: add "this is what you want to solve. yes?"
+def init(params):
+    u=np.full(params.nodes, params.ti, dtype=float)
+    u[0]=params.t1
+    u[-1]=params.t2
+    return u
+u=init(params)
 
 #viz
-## TODO: add viz options, document in "README" or "docs"
+## TODO: document in "README" or "docs"
+## TODO: add cmap options
 ## TODO: add toggles
 ## TODO: add anal soln comp
 fig, axis=plt.subplots()
@@ -92,25 +118,25 @@ img=axis.imshow(u[np.newaxis,:],cmap='jet',aspect="auto",vmin=0,vmax=100)
 #solver
 ## TODO: add implicit v explicit options
 ## TODO: vectorisation
-for j in range(timesteps):
-    w=u.copy()
-    for i in range(1,config["nodes"]-1):
-        u[i]=w[i]+(config["diffusivity"]*dt/dx**2*(w[i+1]-2*w[i]+w[i-1]))
-    residuals=np.abs(w-u)
-    residuals_plot=np.max(residuals)
-    print(residuals_plot)
-    ##TODO: ADD RESIDUALS PLOT HERE!!!
+def solver_loop(params: Params, u):
+    for j in range(params.timesteps):
+        w = u.copy()
+        for i in range(1, params.nodes - 1):
+            u[i] = w[i] + (params.calc_CFL * (w[i + 1] - 2 * w[i] + w[i - 1]))
+        residuals = np.max(np.abs(w - u))
+        print(residuals)
+        ##TODO: ADD RESIDUALS PLOT HERE!!!
 
-    img.set_data(u[np.newaxis,:])
-    #plt.pause(1/fps)
+        img.set_data(u[np.newaxis, :])
+        #plt.pause(1/params.fps)
 
-    if np.max(residuals) < config["target_residuals"]:
-        print(f"solution converged in {j} of {timesteps} iteration(s)")
-        break
+        if residuals < params.target_residuals:
+            print(f"solution converged in {j} of {params.timesteps} iteration(s)")
+            break
+    plt.show()
+solver_loop(params, u)
 
-plt.show()
-
-if __name__=="__main__":
-    main()
+#wiki
+## TODO: look for top 3 tangible differences between loop and vectorized and how to documnet them
 
 ## TODO: "stress-test"

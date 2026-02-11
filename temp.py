@@ -37,5 +37,6 @@ def solver_vectorized(IP_file):
     plt.show()
 solver_vectorized(config)
 
+
 if __name__=="__main__":
     main()

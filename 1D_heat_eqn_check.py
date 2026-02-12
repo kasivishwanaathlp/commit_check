@@ -1,4 +1,5 @@
 #modules
+import numbers
 import sys
 import logging
 import numpy as np
@@ -28,7 +29,6 @@ class Params:
     calc_CFL: float
 
 #CHECKS-input
-## TODO: second rule table for warnings
 INPUT_CHECKS=[
     ("diffusivity", lambda i:isinstance(i,(int,float)) and i>0, "must be >0", "error"),
     ("rod_length", lambda i:isinstance(i,(int,float)) and i>0, "must be >0", "error"),
@@ -41,13 +41,22 @@ INPUT_CHECKS=[
     ("t1", lambda i:isinstance(i,(int,float)), "must be numeric", "error"),
     ("t2", lambda i:isinstance(i,(int,float)), "must be numeric", "error"),
     ("ti", lambda i:isinstance(i,(int,float)), "must be numeric", "error"),
-    ("target_CFL", lambda i:isinstance(i,(int,float)) and 0<i<=0.5, "must be 0< and <=0.5", "error"),
+    ("target_CFL", lambda i:isinstance(i,numbers.Real) and 0<i<=0.5, "must be 0< and <=0.5", "error"),
 
-    ("target_residuals", lambda i:isinstance(i,float) and 0<i<1, "must be 0< and <1", "error"),
-    ("target_residuals", lambda i:isinstance(i,(int,float)) and i<=1e-2, "convergence might be loose", "warning"),
-    ("target_residuals", lambda i:isinstance(i,(int,float)) and i>=1e-9, "may cause excessive runtime", "warning"),
+    ("target_residuals", lambda i:isinstance(i,(float)) and 0<i<1, "must be 0< and <1", "error"),
+    ("target_residuals", lambda i:isinstance(i,(float)) and i<=1e-2, "convergence might be loose", "warning"),
+    ("target_residuals", lambda i:isinstance(i,(float)) and i>=1e-9, "may cause excessive runtime", "warning"),
 
     ("fps", lambda i:isinstance(i,int) and i>0, "must be an integer >0", "error"),
+]
+DERIVED_CHECKS=[
+    ("dt", lambda i:isinstance(i,(int,float)) and i>0, "computed dt is non-positive", "error"),
+
+    ("timesteps", lambda i:isinstance(i,(int)) and i>=1, "given simulation time smaller than unit timestep", "error"),
+    ("timesteps", lambda i:isinstance(i, (int)) and i<=1e7, "calculated no. of timesteps >1e7, simulation time might be excessive", "warning"),
+    ("timesteps", lambda i:isinstance(i, (int)) and i>=1e2, "calculated no. of timesteps <1e2, solution may not reach steady behaviour", "warning"),
+
+    ("calc_CFL", lambda i:isinstance(i,numbers.Real) and 0<i<=0.5, "calculated CFL >0.5", "error"),
 ]
 
 def input_checks(IP_file, rule_table):
@@ -80,30 +89,28 @@ def params_DERIVED(IP_file):
     return {"dx":dx, "dt":dt, "timesteps":timesteps, "calc_CFL":calc_CFL}
 
 #CHECKS-derived--w/-SUGGESTIONS
-## TODO: rule table again? - 1. errors; 2. warnings
-def derived_checks(IP_dict):
+def derived_checks(IP_dict, rule_table):
     errors=[]
-    if IP_dict["dt"]<=0:
-        errors.append("Computed dt is non-positive")
-    if IP_dict["timesteps"]<=1:
-        errors.append("Simulation time smaller than unit timestep")
-    if IP_dict["calc_CFL"]>0.5:
-        errors.append(f"Calculated CFL is > 0.5; Calculated CFL = {IP_dict['calc_CFL']}")
-    if IP_dict["timesteps"]>1e9:
-        errors.append("Calculated number of timesteps larger than 1e9")
-    if IP_dict["timesteps"]>1e7:
-        logging.warning("Calculated number of timesteps greater than 1e7 - simulation might be slow")
-    if IP_dict["timesteps"]<1e2:
-        logging.warning("Calculated number of timesteps smaller than 1e2 - solution may not reach steady behaviour")
+    warnings=[]
+    for key,rule,msg,severity in rule_table:
+        if key not in IP_dict:
+            errors.append(f"Unknown key: {key}")
+            continue
+        if not rule(IP_dict[key]):
+            if severity=="error":
+                errors.append(f"{key}:{msg}")
+            else:
+                warnings.append(f"{key}:{msg}")
+    for w in warnings:
+        logging.warning(w)
     if errors:
-        raise ValueError("\nInput validation failed:\n" + "\n".join(errors))
+        raise ValueError("\nDerived parameters validation failed:\n" + "\n".join(errors))
 
-def assemble_params(config):
-    input_checks(config)
-    derived_params=params_DERIVED(config)
-    derived_checks(derived_params)
-    return Params(**config, **derived_params)
-
+def assemble_params(IP_file):
+    input_checks(IP_file, INPUT_CHECKS)
+    IP_file_derived=params_DERIVED(IP_file)
+    derived_checks(IP_file_derived,DERIVED_CHECKS)
+    return Params(**IP_file, **IP_file_derived)
 
 params = assemble_params(config)
 
